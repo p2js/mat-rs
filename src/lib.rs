@@ -7,7 +7,6 @@ use core::fmt::Display;
 use core::ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /* TODO:
-    - Fix determinant returning wrong values by a factor of -1 sometimes (?)
     - Add adjoint and inverse matrix
     - Dynamic matrix type using vecs?
         - Static determinants using Dmat::determinant?
@@ -208,53 +207,15 @@ impl<const N: usize> Mat<N, N> {
         *self == self.transpose()
     }
 
-    pub fn reduced_row_echelon_form(&self) -> Option<Self> {
-        //get reduced row-echelon matrix
-        let mut reduced = self.clone();
-        for k in 0..N {
-            //find k-th pivot
-            let pivot = reduced
-                .col(k)
-                .iter()
-                .enumerate()
-                .fold(k, |acc, (index, x)| {
-                    if f64_abs(*x) > f64_abs(reduced[acc][k]) {
-                        index
-                    } else {
-                        k
-                    }
-                });
-
-            if reduced[pivot][k] == 0.0 {
-                //matrix is singular
-                return None;
-            };
-
-            //swap elements
-            reduced.swap(k, pivot);
-
-            //for all rows below pivot
-            for i in k + 1..N {
-                let c = -reduced[i][k] / reduced[k][k];
-                //for all remaining elements in current row
-                for j in k + 1..N {
-                    reduced[i][j] += reduced[k][j] * c;
-                }
-                //fill lower triangle with 0s
-                reduced[i][k] = 0.0;
-            }
-        }
-
-        Some(reduced)
-    }
-
     pub fn determinant(&self) -> f64 {
         //Algorithm to find matrix determinant using row reduction
         //Unfortunately, a recursive method using submatrices cannot be implemented
         //in stable rust due to const generic expressions being unstable
 
-        //get reduced row-echelon matrix
+        //get reduced row-echelon matrix and determinant transformation coefficient
         let mut reduced = self.clone();
+        let mut transformation_coefficient = 1.0;
+
         for k in 0..N {
             //find k-th pivot
             let pivot = reduced
@@ -274,8 +235,11 @@ impl<const N: usize> Mat<N, N> {
                 return 0.0;
             };
 
-            //swap elements
-            reduced.swap(k, pivot);
+            //swap elements, multiply transformation coefficient
+            if k != pivot {
+                reduced.swap(k, pivot);
+                transformation_coefficient *= -1.0;
+            }
 
             //for all rows below pivot
             for i in k + 1..N {
@@ -289,13 +253,13 @@ impl<const N: usize> Mat<N, N> {
             }
         }
 
-        //return product of elements in diagonal
+        //return product of elements in diagonal multiplied by the transformation coefficient
         let diagonal_product = reduced
             .iter()
             .enumerate()
             .fold(1.0, |acc, (index, row)| acc * row[index]);
 
-        diagonal_product
+        diagonal_product / transformation_coefficient
     }
 }
 
