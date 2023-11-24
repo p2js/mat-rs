@@ -6,12 +6,6 @@ use alloc::vec::Vec;
 use core::fmt::Display;
 use core::ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
-/* TODO:
-    - Add adjoint and inverse matrix
-    - Dynamic matrix type using vecs?
-        - Static determinants using Dmat::determinant?
-*/
-
 //no_std f64 abs
 fn f64_abs(x: f64) -> f64 {
     f64::from_bits(x.to_bits() & (i64::MAX as u64))
@@ -208,11 +202,11 @@ impl<const N: usize> Mat<N, N> {
     }
 
     pub fn determinant(&self) -> f64 {
-        //Algorithm to find matrix determinant using row reduction
-        //Unfortunately, a recursive method using submatrices cannot be implemented
+        //Algorithm to find matrix determinant using gaussian row reduction,
+        //since a recursive method using submatrices cannot be implemented
         //in stable rust due to const generic expressions being unstable
 
-        //get reduced row-echelon matrix and determinant transformation coefficient
+        //perform gaussian elimination and store the determinant transformation coefficient
         let mut reduced = self.clone();
         let mut transformation_coefficient = 1.0;
 
@@ -235,7 +229,7 @@ impl<const N: usize> Mat<N, N> {
                 return 0.0;
             };
 
-            //swap elements, multiply transformation coefficient
+            //swap rows, flip transformation coefficient
             if k != pivot {
                 reduced.swap(k, pivot);
                 transformation_coefficient *= -1.0;
@@ -260,6 +254,73 @@ impl<const N: usize> Mat<N, N> {
             .fold(1.0, |acc, (index, row)| acc * row[index]);
 
         diagonal_product / transformation_coefficient
+    }
+
+    pub fn inverse(&self) -> Option<Self> {
+        //Algorithm to find matrix inverse, using gauss-jordan elimination
+        // on the matrix augmented with its corresponding identity matrix
+        //(represented here as an array of two matrices)
+        let mut augmented = [self.clone(), Self::identity()];
+
+        //perform gauss-jordan elimination
+        let mut pivot = 0;
+        'outer: for row in 0..N {
+            if pivot >= N * 2 {
+                break;
+            }
+            let mut i = row;
+
+            //Find first non-zero element in lower triangle,
+            //increasing pivot column if the row has no zero elements
+            //and breaking the loop if none can be found
+
+            while augmented[pivot / N][i][pivot % N] == 0.0 {
+                i = i + 1;
+                if i == N {
+                    i = row;
+                    pivot = pivot + 1;
+                    if pivot == N * 2 {
+                        break 'outer;
+                    }
+                }
+            }
+
+            //swap columns in the first half of the matrix
+            if row != i {
+                for col in 0..N {
+                    let temp = augmented[0][row][col];
+                    augmented[0][row][col] = augmented[0][i][col];
+                    augmented[0][i][col] = temp;
+                }
+            }
+
+            //divide current row by pivot element
+            let divisor = augmented[pivot / N][row][pivot % N];
+            if divisor != 0.0 {
+                for col in 0..N * 2 {
+                    augmented[col / N][row][col % N] /= divisor;
+                }
+            }
+
+            //subtract every other row by the current one multiplied by each row's pivot element
+            for j in 0..N {
+                if j != row {
+                    let hold = augmented[pivot / N][j][pivot % N];
+                    for col in 0..N * 2 {
+                        augmented[col / N][j][col % N] -= hold * augmented[col / N][row][col % N];
+                    }
+                }
+            }
+
+            pivot += 1;
+        }
+
+        //If the first 3 columns equal the identity matrix, the second 3 columns are the inverse matrix
+        if augmented[0] == Self::identity() {
+            Some(augmented[1])
+        } else {
+            None
+        }
     }
 }
 
