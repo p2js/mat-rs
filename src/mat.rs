@@ -28,7 +28,7 @@ impl<const R: usize, const C: usize> DerefMut for Mat<R, C> {
 
 impl<const R: usize, const C: usize> Display for Mat<R, C> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let max_column_lengths = self.transpose().map(|column| {
+        let max_column_lengths = (*self.transpose()).map(|column| {
             column
                 .map(|x| x.to_string().len())
                 .iter()
@@ -99,7 +99,7 @@ impl<const R: usize, const C: usize, T: Into<f64>> Mul<T> for Mat<R, C> {
     type Output = Self;
     fn mul(self, scalar: T) -> Self::Output {
         let scalar: f64 = scalar.into();
-        Self(self.map(|row| row.map(|n| n * scalar)))
+        Self((*self).map(|row| row.map(|n| n * scalar)))
     }
 }
 
@@ -130,7 +130,7 @@ impl<const R: usize, const C: usize, T: Into<f64>> Div<T> for Mat<R, C> {
     type Output = Self;
     fn div(self, scalar: T) -> Self::Output {
         let scalar: f64 = scalar.into();
-        Self(self.map(|row| row.map(|n| n / scalar)))
+        Self((*self).map(|row| row.map(|n| n / scalar)))
     }
 }
 
@@ -157,6 +157,10 @@ impl<const R: usize, const C: usize> Mat<R, C> {
         mat
     }
 
+    pub fn map<F: Fn(f64) -> f64>(&self, f: F) -> Self {
+        Self::generate(|row, col| f(self[row][col]))
+    }
+
     pub fn transpose(&self) -> Mat<C, R> {
         Mat::<C, R>::generate(|row, column| self[column][row])
     }
@@ -166,7 +170,7 @@ impl<const R: usize, const C: usize> Mat<R, C> {
     }
 
     pub fn col(&self, col: usize) -> [f64; R] {
-        self.map(|row| row[col])
+        (**self).map(|row| row[col])
     }
 }
 
@@ -336,4 +340,6 @@ macro_rules! __mat_macro {
         Mat::from([ $([ $($e),* ]),* ])
     };
 }
+
+#[doc(inline)]
 pub use __mat_macro as mat;
