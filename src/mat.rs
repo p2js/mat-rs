@@ -3,7 +3,9 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::Display;
-use core::ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use core::ops::{
+    Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 
 //no_std f64 abs
 fn f64_abs(x: f64) -> f64 {
@@ -56,7 +58,7 @@ impl<const R: usize, const C: usize> Display for Mat<R, C> {
                 int if int == R - 1 => ("└", "┘"),
                 _ => ("│", "│\n"),
             };
-            write!(f, "{} {} {}", start_char, row_string, end_char)?;
+            write!(f, "{start_char} {row_string} {end_char}")?;
         }
 
         Ok(())
@@ -72,7 +74,7 @@ impl<const R: usize, const C: usize, T: Into<f64>> From<[[T; C]; R]> for Mat<R, 
 impl<const R: usize, const C: usize> Add for Mat<R, C> {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {
-        Mat::generate(|row, col| self[row][col] + rhs[row][col])
+        Self::generate(|row, col| self[row][col] + rhs[row][col])
     }
 }
 
@@ -85,13 +87,20 @@ impl<const R: usize, const C: usize> AddAssign for Mat<R, C> {
 impl<const R: usize, const C: usize> Sub for Mat<R, C> {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {
-        Mat::generate(|row, col| self[row][col] - rhs[row][col])
+        Self::generate(|row, col| self[row][col] - rhs[row][col])
     }
 }
 
 impl<const R: usize, const C: usize> SubAssign for Mat<R, C> {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
+    }
+}
+
+impl<const R: usize, const C: usize> Neg for Mat<R, C> {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        self * -1
     }
 }
 
@@ -105,7 +114,7 @@ impl<const R: usize, const C: usize, T: Into<f64>> Mul<T> for Mat<R, C> {
 
 impl<const R: usize, const C: usize, T: Into<f64>> MulAssign<T> for Mat<R, C> {
     fn mul_assign(&mut self, scalar: T) {
-        *self = *self * scalar
+        *self = *self * scalar;
     }
 }
 
@@ -136,12 +145,13 @@ impl<const R: usize, const C: usize, T: Into<f64>> Div<T> for Mat<R, C> {
 
 impl<const R: usize, const C: usize, T: Into<f64>> DivAssign<T> for Mat<R, C> {
     fn div_assign(&mut self, scalar: T) {
-        *self = *self / scalar
+        *self = *self / scalar;
     }
 }
 
 impl<const R: usize, const C: usize> Mat<R, C> {
-    pub fn zero() -> Self {
+    #[must_use]
+    pub const fn zero() -> Self {
         Self([[0.0; C]; R])
     }
 
@@ -157,18 +167,22 @@ impl<const R: usize, const C: usize> Mat<R, C> {
         mat
     }
 
+    #[must_use]
     pub fn map<F: Fn(f64) -> f64>(&self, f: F) -> Self {
         Self::generate(|row, col| f(self[row][col]))
     }
 
+    #[must_use]
     pub fn transpose(&self) -> Mat<C, R> {
         Mat::<C, R>::generate(|row, column| self[column][row])
     }
 
+    #[must_use]
     pub fn row(&self, row: usize) -> [f64; C] {
         self[row]
     }
 
+    #[must_use]
     pub fn col(&self, col: usize) -> [f64; R] {
         (**self).map(|row| row[col])
     }
@@ -177,10 +191,12 @@ impl<const R: usize, const C: usize> Mat<R, C> {
 //functions/operations exclusive to square matrices
 
 impl<const N: usize> Mat<N, N> {
+    #[must_use]
     pub fn identity() -> Self {
         Self::generate(|row, column| if row == column { 1.0 } else { 0.0 })
     }
 
+    #[must_use]
     pub fn is_diagonal(&self) -> bool {
         for row_index in 0..N {
             for col_index in 0..N {
@@ -192,25 +208,29 @@ impl<const N: usize> Mat<N, N> {
         true
     }
 
+    #[must_use]
     pub fn is_scalar_identity_multiple(&self) -> bool {
         *self == Self::identity() * self[0][0]
     }
 
+    #[must_use]
     pub fn is_orthogonal(&self) -> bool {
         *self * self.transpose() == Self::identity()
     }
 
+    #[must_use]
     pub fn is_symmetric(&self) -> bool {
         *self == self.transpose()
     }
 
+    #[must_use]
     pub fn determinant(&self) -> f64 {
         //Algorithm to find matrix determinant using gaussian row reduction,
         //since a recursive method using submatrices cannot be implemented
         //in stable rust due to const generic expressions being unstable
 
         //perform gaussian elimination and store the determinant transformation coefficient
-        let mut reduced = self.clone();
+        let mut reduced = *self;
         let mut transformation_coefficient = 1.0;
 
         for k in 0..N {
@@ -259,11 +279,12 @@ impl<const N: usize> Mat<N, N> {
         diagonal_product / transformation_coefficient
     }
 
+    #[must_use]
     pub fn inverse(&self) -> Option<Self> {
         //Algorithm to find matrix inverse, using gauss-jordan elimination
         // on the matrix augmented with its corresponding identity matrix
         //(represented here as an array of two matrices)
-        let mut augmented = [self.clone(), Self::identity()];
+        let mut augmented = [*self, Self::identity()];
 
         //perform gauss-jordan elimination
         let mut pivot = 0;
@@ -278,10 +299,10 @@ impl<const N: usize> Mat<N, N> {
             //and breaking the loop if none can be found
 
             while augmented[pivot / N][i][pivot % N] == 0.0 {
-                i = i + 1;
+                i += 1;
                 if i == N {
                     i = row;
-                    pivot = pivot + 1;
+                    pivot += 1;
                     if pivot == N * 2 {
                         break 'outer;
                     }
@@ -329,7 +350,7 @@ impl<const N: usize> Mat<N, N> {
 
 impl<const N: usize> MulAssign for Mat<N, N> {
     fn mul_assign(&mut self, rhs: Self) {
-        *self = *self * rhs
+        *self = *self * rhs;
     }
 }
 
