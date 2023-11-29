@@ -90,15 +90,34 @@ impl Display for DMat {
     }
 }
 
-impl Add for DMat {
+impl Add<&Self> for DMat {
     type Output = Self;
+    fn add(mut self, rhs: &Self) -> Self::Output {
+        assert!(
+            (self.rows, self.cols) == (rhs.rows, rhs.cols),
+            "Attempted to add two matrices of different sizes"
+        );
+        self.mutate(|val, row, col| val + rhs[row][col]);
+        self
+    }
+}
+
+impl Add<Self> for DMat {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Add::<&Self>::add(self, &rhs)
+    }
+}
+
+impl Add for &DMat {
+    type Output = DMat;
     fn add(self, rhs: Self) -> Self::Output {
         assert!(
             (self.rows, self.cols) == (rhs.rows, rhs.cols),
             "Attempted to add two matrices of different sizes"
         );
 
-        Self::generate(self.rows, self.cols, |row, col| {
+        Self::Output::generate(self.rows, self.cols, |row, col| {
             self[row][col] + rhs[row][col]
         })
     }
@@ -114,15 +133,34 @@ impl AddAssign for DMat {
     }
 }
 
-impl Sub for DMat {
+impl Sub<&Self> for DMat {
     type Output = Self;
+    fn sub(mut self, rhs: &Self) -> Self::Output {
+        assert!(
+            (self.rows, self.cols) == (rhs.rows, rhs.cols),
+            "Attempted to subtract two matrices of different sizes"
+        );
+        self.mutate(|val, row, col| val - rhs[row][col]);
+        self
+    }
+}
+
+impl Sub<Self> for DMat {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Sub::<&Self>::sub(self, &rhs)
+    }
+}
+
+impl Sub for &DMat {
+    type Output = DMat;
     fn sub(self, rhs: Self) -> Self::Output {
         assert!(
             (self.rows, self.cols) == (rhs.rows, rhs.cols),
             "Attempted to subtract two matrices of different sizes"
         );
 
-        Self::generate(self.rows, self.cols, |row, col| {
+        Self::Output::generate(self.rows, self.cols, |row, col| {
             self[row][col] - rhs[row][col]
         })
     }
@@ -140,6 +178,15 @@ impl SubAssign for DMat {
 
 impl<T: Into<f64>> Mul<T> for DMat {
     type Output = DMat;
+    fn mul(mut self, scalar: T) -> Self::Output {
+        let scalar: f64 = scalar.into();
+        self.mutate(|val, _, _| val * scalar);
+        self
+    }
+}
+
+impl<T: Into<f64>> Mul<T> for &DMat {
+    type Output = DMat;
     fn mul(self, scalar: T) -> Self::Output {
         let scalar: f64 = scalar.into();
         self.map(|val| val * scalar)
@@ -156,8 +203,22 @@ impl<T: Into<f64>> MulAssign<T> for DMat {
     }
 }
 
-impl Mul for DMat {
+impl Mul<Self> for DMat {
     type Output = Self;
+    fn mul(self, rhs: Self) -> Self::Output {
+        <&DMat as Mul>::mul(&self, &rhs)
+    }
+}
+
+impl Mul<&Self> for DMat {
+    type Output = Self;
+    fn mul(self, rhs: &Self) -> Self::Output {
+        <&DMat as Mul>::mul(&self, rhs)
+    }
+}
+
+impl Mul for &DMat {
+    type Output = DMat;
     fn mul(self, rhs: Self) -> Self::Output {
         assert!(
             self.cols == rhs.rows,
@@ -178,6 +239,13 @@ impl Mul for DMat {
 }
 
 impl Neg for DMat {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        self * -1
+    }
+}
+
+impl Neg for &DMat {
     type Output = DMat;
     fn neg(self) -> Self::Output {
         self * -1
@@ -185,6 +253,15 @@ impl Neg for DMat {
 }
 
 impl<T: Into<f64>> Div<T> for DMat {
+    type Output = DMat;
+    fn div(mut self, scalar: T) -> Self::Output {
+        let scalar: f64 = scalar.into();
+        self.mutate(|val, _, _| val / scalar);
+        self
+    }
+}
+
+impl<T: Into<f64>> Div<T> for &DMat {
     type Output = DMat;
     fn div(self, scalar: T) -> Self::Output {
         let scalar: f64 = scalar.into();
@@ -237,6 +314,12 @@ impl DMat {
             vals: vec.into_boxed_slice(),
             rows,
             cols,
+        }
+    }
+
+    pub fn mutate<F: Fn(f64, usize, usize) -> f64>(&mut self, f: F) {
+        for (index, val) in self.vals.iter_mut().enumerate() {
+            *val = f(*val, index / self.cols, index % self.cols);
         }
     }
 
