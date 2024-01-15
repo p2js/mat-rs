@@ -1,11 +1,13 @@
 extern crate alloc;
+use crate::f64_abs;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::fmt::Display;
-
-use core::ops::{Add, AddAssign, Div, DivAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 
 #[derive(Debug, Clone)]
 pub struct DMat {
@@ -29,6 +31,13 @@ impl Index<usize> for DMat {
     fn index(&self, index: usize) -> &Self::Output {
         let starting_idx = self.cols * index;
         &self.vals[starting_idx..(starting_idx + self.cols)]
+    }
+}
+
+impl IndexMut<usize> for DMat {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        let starting_idx = self.cols * index;
+        &mut self.vals[starting_idx..(starting_idx + self.cols)]
     }
 }
 
@@ -238,6 +247,16 @@ impl Mul for &DMat {
     }
 }
 
+impl MulAssign for DMat {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = Self {
+            vals: core::mem::take(&mut self.vals),
+            rows: self.rows,
+            cols: self.cols,
+        } * rhs;
+    }
+}
+
 impl Neg for DMat {
     type Output = Self;
     fn neg(self) -> Self::Output {
@@ -382,6 +401,85 @@ impl DMat {
             return false;
         }
         *self == self.transpose()
+    }
+
+    #[must_use]
+    pub fn to_determinant(mut self) -> f64 {
+        //determinant is undefined for non-square matrices
+        assert!(
+            self.rows == self.cols,
+            "Attempted to take determinant of non-square matrix"
+        );
+
+        let size = self.rows;
+
+        //perform gaussian elimination and store the determinant transformation coefficient
+        let mut transformation_coefficient = 1.0;
+
+        for k in 0..size {
+            //find k-th pivot
+            //TODO: replace this hideous transpose computation once a proper column access method is implemented
+            let pivot = self.transpose()[k]
+                .iter()
+                .enumerate()
+                .fold(k, |acc, (index, x)| {
+                    if f64_abs(*x) > f64_abs(self[acc][k]) {
+                        index
+                    } else {
+                        k
+                    }
+                });
+
+            if self[pivot][k] == 0.0 {
+                //matrix is singular
+                return 0.0;
+            };
+
+            //swap rows, flip transformation coefficient
+            if k != pivot {
+                for col in 0..size {
+                    let temp = self[k][col];
+                    self[k][col] = self[pivot][col];
+                    self[pivot][col] = temp;
+                }
+
+                transformation_coefficient *= -1.0;
+            }
+
+            //for all rows below pivot
+            for i in k + 1..size {
+                let c = -self[i][k] / self[k][k];
+                //for all remaining elements in current row
+                for j in k + 1..size {
+                    self[i][j] += self[k][j] * c;
+                }
+                //fill lower triangle with 0s
+                self[i][k] = 0.0;
+            }
+        }
+
+        //return product of elements in diagonal multiplied by the transformation coefficient
+        let diagonal_product = self
+            .row_iter()
+            .enumerate()
+            .fold(1.0, |acc, (index, row)| acc * row[index]);
+
+        diagonal_product * transformation_coefficient
+    }
+
+    #[must_use]
+    pub fn determinant(&self) -> f64 {
+        self.clone().to_determinant()
+    }
+
+    #[must_use]
+    pub fn to_inverse(/*mut self*/) -> DMat {
+        todo!();
+    }
+
+    #[must_use]
+    pub fn inverse(&self) -> DMat {
+        todo!();
     }
 }
 
