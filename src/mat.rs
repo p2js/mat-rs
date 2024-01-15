@@ -1,4 +1,5 @@
 extern crate alloc;
+use crate::f64_abs;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -6,11 +7,6 @@ use core::fmt::Display;
 use core::ops::{
     Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign,
 };
-
-//no_std f64 abs
-fn f64_abs(x: f64) -> f64 {
-    f64::from_bits(x.to_bits() & (i64::MAX as u64))
-}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Mat<const R: usize, const C: usize>([[f64; C]; R]);
@@ -97,13 +93,6 @@ impl<const R: usize, const C: usize> SubAssign for Mat<R, C> {
     }
 }
 
-impl<const R: usize, const C: usize> Neg for Mat<R, C> {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        self * -1
-    }
-}
-
 impl<const R: usize, const C: usize, T: Into<f64>> Mul<T> for Mat<R, C> {
     type Output = Self;
     fn mul(self, scalar: T) -> Self::Output {
@@ -115,6 +104,13 @@ impl<const R: usize, const C: usize, T: Into<f64>> Mul<T> for Mat<R, C> {
 impl<const R: usize, const C: usize, T: Into<f64>> MulAssign<T> for Mat<R, C> {
     fn mul_assign(&mut self, scalar: T) {
         *self = *self * scalar;
+    }
+}
+
+impl<const R: usize, const C: usize> Neg for Mat<R, C> {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        self * -1
     }
 }
 
@@ -225,9 +221,7 @@ impl<const N: usize> Mat<N, N> {
 
     #[must_use]
     pub fn determinant(&self) -> f64 {
-        //Algorithm to find matrix determinant using gaussian row reduction,
-        //since a recursive method using submatrices cannot be implemented
-        //in stable rust due to const generic expressions being unstable
+        //Algorithm to find matrix determinant using gaussian row reduction
 
         //perform gaussian elimination and store the determinant transformation coefficient
         let mut reduced = *self;
@@ -276,7 +270,7 @@ impl<const N: usize> Mat<N, N> {
             .enumerate()
             .fold(1.0, |acc, (index, row)| acc * row[index]);
 
-        diagonal_product / transformation_coefficient
+        diagonal_product * transformation_coefficient
     }
 
     #[must_use]
@@ -297,7 +291,6 @@ impl<const N: usize> Mat<N, N> {
             //Find first non-zero element in lower triangle,
             //increasing pivot column if the row has no zero elements
             //and breaking the loop if none can be found
-
             while augmented[pivot / N][i][pivot % N] == 0.0 {
                 i += 1;
                 if i == N {
