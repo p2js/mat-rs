@@ -29,7 +29,7 @@ use mat_rs::mat::{mat, Mat};
 let a = mat![
     1, 2, 3;
     4, 5, 6;
-    7, 8, 9;
+    7, 8, 9
 ]; //the type will be automatically inferred as Mat<3, 3>
 
 let b = Mat::identity(3); //3x3 identity matrix
