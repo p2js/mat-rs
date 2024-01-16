@@ -2,7 +2,9 @@
 name = "mat-rs"
 version = "0.1.0"
 edition = "2021"
-
+description = "no_std implementation of mathematical matrix types"
+repository = "https://github.com/p2js/mat-rs"
+license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
