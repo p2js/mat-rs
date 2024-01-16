@@ -32,7 +32,7 @@ let a = mat![
     7, 8, 9
 ]; //the type will be automatically inferred as Mat<3, 3>
 
-let b = Mat::identity(3); //3x3 identity matrix
+let b = Mat::<3, 3>::identity(); //3x3 identity matrix
 
 assert_eq(a*b, a);
 println!("{}", a.determinant()); //0
