@@ -1,4 +1,4 @@
-# mat_rs
+# mat-rs
 
 A `no_std` implementation of mathematical matrix types in rust
 
@@ -6,7 +6,7 @@ A `no_std` implementation of mathematical matrix types in rust
 
 This library is functional, but not done. There are a couple of things on the to-do list:
 
-- Implement the toInverse (if even possible) and inverse methods for DMat
+- Implement the `to_inverse` (if even possible) and `inverse` methods for DMat
 - Add doc comments for types and operations
 - Add one-way interoperability between DMat and Mat (possibly through a common Matrix trait)
 
@@ -41,7 +41,7 @@ println!("{}", a.determinant()); //0
 ## Operations
 
 For the statically sized `Mat`s, operations are defined only on valid corresponding types.
-For example, `Mat<R, C>::add` will be defined only on matrices of the same types.
+For example, `Mat<R, C>::add` will be defined only on matrices of the same size.
 
 This also applies to commutative matrices for multiplication, and operations that are only valid on square matrices like determinants and inverses.
 
